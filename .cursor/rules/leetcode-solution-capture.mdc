@@ -1,0 +1,18 @@
+---
+description: LeetCode 题解沉淀规则
+alwaysApply: true
+---
+
+# LeetCode 题解沉淀
+
+当用户提到“题解”、LeetCode 题号，或要求讲解某道算法题时，默认在回答后把内容沉淀到仓库。
+
+沉淀规则：
+
+- 按主分类放到 `leetcode/<category>/<number-kebab-title>/`。
+- 每题目录包含 `README.md` 和 `<number-kebab-title>.js`。
+- `README.md` 包含：分类、题目目标、解题思路、复杂度、易错点、代码文件引用。
+- JS 文件包含：函数实现、简单示例 `console.log`、`module.exports`。
+- 分类名使用小写英文，例如 `array`、`string`、`hash-table`、`sliding-window`、`two-pointers`。
+- 如果题目有多个标签，目录按最主要标签归类，其余标签写进 `README.md` 的分类列表。
+- 沉淀后运行对应 JS 示例，并检查新增 JS 文件 linter。

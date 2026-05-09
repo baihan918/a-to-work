@@ -1,0 +1,4 @@
+interface:
+  display_name: "跳槽准备规划"
+  short_description: "为资深前端制定跳槽学习、简历优化、面试与落地执行计划"
+  default_prompt: "Use $frontend-job-hop-plan to build or review my frontend job-hop study and interview plan."
