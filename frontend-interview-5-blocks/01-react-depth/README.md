@@ -2,6 +2,64 @@
 
 ## 高频面试题
 
+### 0. 虚拟 DOM 和真实 DOM 有什么不同？
+
+**答题口径**
+
+虚拟 DOM 是 JavaScript 对象，用来描述 UI；真实 DOM 是浏览器提供的节点对象，会直接参与渲染、布局、绘制和事件系统。
+
+真实 DOM 例如：
+
+```html
+<div id="app">hello</div>
+```
+
+对应的是浏览器内存里的 `HTMLDivElement`，它有大量属性和方法，比如 `appendChild`、`getBoundingClientRect`、`style`、`classList`。
+
+虚拟 DOM 大概是一个普通 JS 对象：
+
+```js
+{
+  type: 'div',
+  props: {
+    id: 'app',
+    children: 'hello'
+  }
+}
+```
+
+它只是描述“我想要一个什么 UI”，本身不会显示在页面上。
+
+**核心区别**
+
+- 本质不同：真实 DOM 是浏览器节点，虚拟 DOM 是 JS 对象。
+- 成本不同：真实 DOM 操作可能触发布局、绘制、合成；虚拟 DOM diff 发生在 JS 层。
+- 生命周期不同：真实 DOM 存在于页面文档中；虚拟 DOM 更像某次 render 的 UI 快照。
+- 能力不同：真实 DOM 可以测量布局、聚焦、滚动、操作 selection；虚拟 DOM 不能直接做这些。
+- 更新方式不同：React 先根据虚拟 DOM / Fiber 计算差异，再批量提交到真实 DOM。
+
+**注意点**
+
+不要简单说“虚拟 DOM 一定比真实 DOM 快”。虚拟 DOM 的价值不只是性能，它更重要的是：
+
+- 声明式 UI。
+- 批量更新。
+- 跨平台抽象。
+- 组件化更新模型。
+- 为 Fiber 调度提供基础。
+
+**和 Fiber 的关系**
+
+React Element / 虚拟 DOM 是描述 UI 的对象。Fiber 是 React 内部的工作单元，保存更多运行时信息，比如 state、props、effect、ref、update queue、`child`、`sibling`、`return`、优先级信息。
+
+可以这样理解：
+
+> 虚拟 DOM 描述“UI 长什么样”，Fiber 描述“这次更新工作怎么被调度和执行”。
+
+**面试表达**
+
+> 虚拟 DOM 本质是普通 JS 对象，用来描述 UI 结构和 props；真实 DOM 是浏览器里的节点对象，会参与布局、绘制、事件和渲染流程。直接频繁操作真实 DOM 可能触发重排重绘，而虚拟 DOM 可以让 React 在 JS 层先计算差异，再批量更新真实 DOM。但虚拟 DOM 的价值不只是性能，它更重要的是带来了声明式 UI、跨平台能力、更新抽象和批量调度。React 里虚拟 DOM 还会进一步转成 Fiber，Fiber 作为内部工作单元支持优先级和可中断渲染。
+
 ### 1. 为什么 React 需要 Fiber？
 
 **答题口径**
@@ -170,4 +228,3 @@ Concurrent Rendering 让 React 能够中断低优先级渲染，优先响应高�
 ### React 项目性能分析怎么做？
 
 先用 React Profiler 看重复渲染和 commit 耗时，再用 Chrome Performance 看主线程长任务、Layout、Paint，最后用 bundle analyzer 看包体积和第三方依赖。
-

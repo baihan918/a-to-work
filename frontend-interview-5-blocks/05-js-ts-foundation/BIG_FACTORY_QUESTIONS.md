@@ -190,19 +190,203 @@ function promiseAll<T>(items: Array<T | Promise<T>>): Promise<T[]> {
 
 原生 `Promise.all` 是 fail-fast：任意一个 Promise reject，返回的 Promise 立刻 reject。其他已经启动的 Promise 不会被自动取消，只是它们后续结果不会影响 `Promise.all` 的最终状态。如果要全部完成后收集成功失败，要实现类似 `Promise.allSettled`。
 
-### 5. 手写深拷贝要考虑什么？
+### 5. 会考手写 Promise 吗？怎么准备？
+
+**题解口径**
+
+会考，尤其字节这类重基础的面试比较常见。9 年前端不一定要求完整默写 Promise/A+，但至少要能实现一个简化版，讲清状态机、then 链式调用、异步回调、错误传递、thenable 解析。
+
+面试时可以先声明边界：
+
+> 我先实现一个核心版，覆盖 pending / fulfilled / rejected、then 链式调用、异步执行、错误捕获和 thenable 解析；完整 A+ 还有更多边界，比如循环引用检测和更严格的 resolvePromise 过程。
+
+**核心实现**
+
+```js
+class MyPromise {
+  constructor(executor) {
+    this.status = 'pending';
+    this.value = undefined;
+    this.reason = undefined;
+    this.onFulfilledCallbacks = [];
+    this.onRejectedCallbacks = [];
+
+    const resolve = value => {
+      if (this.status !== 'pending') return;
+
+      queueMicrotask(() => {
+        if (this.status !== 'pending') return;
+
+        if (value instanceof MyPromise) {
+          value.then(resolve, reject);
+          return;
+        }
+
+        this.status = 'fulfilled';
+        this.value = value;
+        this.onFulfilledCallbacks.forEach(callback => callback());
+      });
+    };
+
+    const reject = reason => {
+      if (this.status !== 'pending') return;
+
+      queueMicrotask(() => {
+        if (this.status !== 'pending') return;
+
+        this.status = 'rejected';
+        this.reason = reason;
+        this.onRejectedCallbacks.forEach(callback => callback());
+      });
+    };
+
+    try {
+      executor(resolve, reject);
+    } catch (error) {
+      reject(error);
+    }
+  }
+
+  then(onFulfilled, onRejected) {
+    const realOnFulfilled =
+      typeof onFulfilled === 'function' ? onFulfilled : value => value;
+    const realOnRejected =
+      typeof onRejected === 'function'
+        ? onRejected
+        : reason => {
+            throw reason;
+          };
+
+    const nextPromise = new MyPromise((resolve, reject) => {
+      const fulfilledTask = () => {
+        queueMicrotask(() => {
+          try {
+            const result = realOnFulfilled(this.value);
+            resolvePromise(nextPromise, result, resolve, reject);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      };
+
+      const rejectedTask = () => {
+        queueMicrotask(() => {
+          try {
+            const result = realOnRejected(this.reason);
+            resolvePromise(nextPromise, result, resolve, reject);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      };
+
+      if (this.status === 'fulfilled') {
+        fulfilledTask();
+      } else if (this.status === 'rejected') {
+        rejectedTask();
+      } else {
+        this.onFulfilledCallbacks.push(fulfilledTask);
+        this.onRejectedCallbacks.push(rejectedTask);
+      }
+    });
+
+    return nextPromise;
+  }
+
+  catch(onRejected) {
+    return this.then(undefined, onRejected);
+  }
+
+  finally(onFinally) {
+    return this.then(
+      value => MyPromise.resolve(onFinally()).then(() => value),
+      reason =>
+        MyPromise.resolve(onFinally()).then(() => {
+          throw reason;
+        })
+    );
+  }
+
+  static resolve(value) {
+    if (value instanceof MyPromise) return value;
+    return new MyPromise(resolve => resolve(value));
+  }
+
+  static reject(reason) {
+    return new MyPromise((_, reject) => reject(reason));
+  }
+}
+
+function resolvePromise(nextPromise, result, resolve, reject) {
+  if (result === nextPromise) {
+    reject(new TypeError('Chaining cycle detected for promise'));
+    return;
+  }
+
+  if (result instanceof MyPromise) {
+    result.then(resolve, reject);
+    return;
+  }
+
+  resolve(result);
+}
+```
+
+**追问 1：Promise 有哪几种状态？状态能不能反转？**
+
+三种状态：`pending`、`fulfilled`、`rejected`。只能从 pending 变成 fulfilled 或 rejected，状态一旦确定就不可逆。后续再调用 resolve 或 reject 都应该被忽略。
+
+**追问 2：then 为什么要返回一个新的 Promise？**
+
+因为 Promise 要支持链式调用。`then` 回调的返回值会决定新 Promise 的状态：返回普通值，新 Promise fulfilled；抛错，新 Promise rejected；返回 Promise，新 Promise 跟随它的最终状态。
+
+**追问 3：为什么 then 回调要异步执行？**
+
+原生 Promise 的 then 回调进入微任务队列。即使 Promise 已经 fulfilled，`then` 里的回调也不会同步执行。这样可以保证执行顺序稳定，避免同步/异步状态不一致。
+
+**追问 4：什么是错误穿透？**
+
+如果 `then` 没传 `onRejected`，错误要继续往后传，直到被后面的 `catch` 捕获。所以默认的 `onRejected` 不能吞错误，而应该 `throw reason`。
+
+**追问 5：什么是值穿透？**
+
+如果 `then` 没传 `onFulfilled`，成功值要继续传给下一个 `then`。所以默认的 `onFulfilled` 是 `value => value`。
+
+**追问 6：为什么要检测循环引用？**
+
+如果 `then` 返回的新 Promise 又试图 resolve 自己，会造成无限递归和状态无法确定，所以要检测 `result === nextPromise`，并 reject 一个 TypeError。
+
+**追问 7：Promise 和 async/await 什么关系？**
+
+`async/await` 是基于 Promise 的语法糖。`async` 函数一定返回 Promise，`await` 会等待 Promise settle，并把后续代码放到微任务链路里继续执行。它改善写法，但不改变底层异步模型。
+
+**追问 8：手写 Promise.all 和 Promise.race 怎么讲？**
+
+`Promise.all` 要保持结果顺序，并且任意一个 reject 就整体 reject。`Promise.race` 是谁先 settle 就采用谁的状态，不关心后续 Promise。
+
+```js
+function promiseRace(items) {
+  return new Promise((resolve, reject) => {
+    items.forEach(item => {
+      Promise.resolve(item).then(resolve, reject);
+    });
+  });
+}
+```
+
+### 6. 手写深拷贝要考虑什么？
 
 **题解口径**
 
 要考虑基础类型、对象、数组、Date、RegExp、Map、Set、循环引用、Symbol key、原型、函数。业务中优先使用 `structuredClone` 或成熟库，面试手写重点是 WeakMap 处理循环引用。
 
-### 6. 原型链和继承实现
+### 7. 原型链和继承实现
 
 **题解口径**
 
 能讲清构造函数、实例、`prototype`、内部原型之间的关系。组合继承、寄生组合继承、class 本质都要能讲。面试重点不是背名字，而是理解属性查找和方法共享。
 
-### 7. 实现模板字符串替换
+### 8. 实现模板字符串替换
 
 **题目**
 
@@ -245,7 +429,7 @@ const blockedKeys = new Set(['__proto__', 'constructor', 'prototype']);
 
 要看业务约定。模板渲染常见做法是返回空字符串，避免页面出现 `undefined`。如果是配置系统或消息模板，也可以保留原占位符，方便发现配置错误。面试里说明取舍即可。
 
-### 8. 实现 LRU Cache
+### 9. 实现 LRU Cache
 
 **题解口径**
 
