@@ -7,6 +7,7 @@
 - Hash Table：适合快速查找“另一个数是否出现过”、统计出现次数。
 - Two Pointers：适合有序数组、排序后查找组合、左右收缩。
 - Sorting：常用于去重、制造单调性，再配合双指针。
+- Divide and Conquer：适合把问题拆成左右两段分别处理，例如快速排序。
 - 分组降维：多数组求和时，把 `O(n^4)` 拆成两个 `O(n^2)`。
 
 ## 题目列表
@@ -15,7 +16,10 @@
 | --- | --- | --- | --- |
 | [1. 两数之和](./1-two-sum/README.md) | Hash Table | 遍历时查 `target - num` 是否出现过 | 先查再存，避免同一个元素被用两次；返回下标不是数字 |
 | [15. 三数之和](./15-three-sum/README.md) | Sorting + Two Pointers | 排序后固定第一个数，剩下两数用左右指针找和为 `0` | 外层 `i` 要去重；找到答案后 `left` 和 `right` 都要跳过重复值 |
+| [35. 搜索插入位置](./35-search-insert-position/README.md) | Binary Search | 寻找第一个大于等于 `target` 的位置 | 左闭右闭区间使用 `left <= right`；循环结束后返回 `left` |
 | [454. 四数相加 II](./454-four-sum-count-ii/README.md) | Hash Table + 分组降维 | 先统计 `nums1 + nums2` 的和，再查 `-(nums3 + nums4)` | `Map` 存的是出现次数；这是计数题，不需要去重 |
+| [704. 二分查找](./35-search-insert-position/README.md) | Binary Search | 每次排除不可能包含 `target` 的一半区间 | 找到返回 `mid`；搜索区间为空时返回 `-1` |
+| [快速排序：左侧 pivot + 挖坑法](./quick-sort-left-pivot/README.md) | Sorting + Divide and Conquer | 左侧元素作为 `pivot`，用挖坑法完成原地分区 | 赋值不是交换；必须先从右边找小元素填左坑，最后把 `pivot` 填回相遇位置 |
 
 ## 复习重点
 
@@ -55,3 +59,14 @@
 
 - 统计数量：更适合用哈希表记录次数。
 - 返回不重复组合：更常见是排序 + 双指针 + 去重。
+
+### 快速排序
+
+快速排序的关键在 `partition`。
+
+左侧 `pivot` + 挖坑法要记住：
+
+- 先保存 `pivot = nums[left]`，此时左边位置变成坑。
+- 先从右边找 `< pivot` 的元素填左坑。
+- 再从左边找 `> pivot` 的元素填右坑。
+- 指针相遇后，把 `pivot` 放回最后的坑。

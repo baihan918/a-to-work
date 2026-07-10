@@ -5,37 +5,68 @@
 快速排序的核心思想是分治：
 
 1. 选择一个基准值 `pivot`。
-2. 把比 `pivot` 小的元素放到左边。
+2. 通过 `partition` 把比 `pivot` 小的元素放到左边。
 3. 把比 `pivot` 大或相等的元素放到右边。
 4. 递归排序左右两边。
 
 示例：
 
 ```js
-function quickSort(arr) {
-  if (arr.length <= 1) return arr;
+function quickSort(nums) {
+  sort(nums, 0, nums.length - 1);
+  return nums;
+}
 
-  const pivot = arr[0];
-  const left = [];
-  const right = [];
+function sort(nums, left, right) {
+  if (left >= right) return;
 
-  for (let i = 1; i < arr.length; i++) {
-    if (arr[i] < pivot) {
-      left.push(arr[i]);
-    } else {
-      right.push(arr[i]);
+  const pivotIndex = partition(nums, left, right);
+
+  sort(nums, left, pivotIndex - 1);
+  sort(nums, pivotIndex + 1, right);
+}
+
+function partition(nums, left, right) {
+  const pivot = nums[left];
+  let i = left;
+  let j = right;
+
+  while (i < j) {
+    while (i < j && nums[j] >= pivot) {
+      j--;
     }
+    nums[i] = nums[j];
+
+    while (i < j && nums[i] <= pivot) {
+      i++;
+    }
+    nums[j] = nums[i];
   }
 
-  return [...quickSort(left), pivot, ...quickSort(right)];
+  nums[i] = pivot;
+  return i;
 }
 ```
+
+这版是左侧 `pivot` + 挖坑法的原地排序写法。
+
+`partition` 里先保存：
+
+```js
+const pivot = nums[left];
+```
+
+此时 `left` 位置就可以理解成一个坑。后面的赋值不是交换：
+
+- `nums[i] = nums[j]`：把右边找到的较小元素填到左边的坑里。
+- `nums[j] = nums[i]`：把左边找到的较大元素填到右边的坑里。
+- `nums[i] = pivot`：指针相遇后，把基准值填回最后的坑。
 
 特点：
 
 - 平均时间复杂度：`O(n log n)`。
 - 最坏时间复杂度：`O(n^2)`，例如基准值每次都选到最大值或最小值。
-- 空间复杂度：上面这种非原地写法是 `O(n)`；原地分区写法通常是 `O(log n)` 递归栈。
+- 空间复杂度：原地分区本身是 `O(1)`，整体通常是 `O(log n)` 递归栈；最坏情况下递归栈会退化到 `O(n)`。
 - 稳定性：通常不稳定。
 
 ## 归并排序
@@ -99,4 +130,3 @@ function merge(left, right) {
 快速排序：找一个基准值，小的放左边，大的放右边。
 
 归并排序：先拆到最小，再把有序小数组合并成有序大数组。
-
